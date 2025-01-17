@@ -12,17 +12,16 @@ The study uses data from the ROS/MAP cohort, which includes approximately 3,700 
   - Gpath
   - NIA-Reagan scores
 
----
+## Goal
+
+The goal of this study is to utilize longitudinal clinical data from the ROS/MAP study to develop a model that predicts brain pathology based on clinical features.
+
 
 ## Method
 The analysis consists of the following steps:
 
-1. **Data Exploration:**
-   - Performed correlation analysis to identify important features.
-   - Identified 40 features with Pearson correlation coefficients > 0.4.
-   - Visualized results using a correlation heatmap.
-
-2. **Data Preparation:**
+1. **Data Exploration and  Preparation:**
+   - Performed correlation analysis to check correlation among features and outcomes.
    - Split the data into 80% training and 20% testing sets.
    - Scaled features to ensure compatibility with the regression model.
 
@@ -54,14 +53,13 @@ Principal Component Analysis (PCA) was applied to reduce the dimensionality of t
 
 
 ### Elastic Net Regression with PCA (20 Principal Components)
-Elastic Net Regression was performed using the 20 principal components derived from PCA. The results are as follows:
-
-- **R-squared on Test Data:** 0.1914
-  - The model explains approximately 19.14% of the variance in the Gpath outcome using 20 PCs.
+Elastic Net Regression was performed using the 20 principal components derived from PCA. 
+- **Model Performance:**
+  - **R-squared on Test Data:** 0.1914
 
 ### Elastic Net Regression with Raw Features
 
-- The optimal parameters for the **Gpath** model were selected using GridSearchCV:
+- The optimal parameters for predicting **Gpath** were selected using GridSearchCV:
   - **Alpha:** 0.1
   - **L1 Ratio:** 0.3
 - The following plot visualizes the hyperparameter tuning:
@@ -69,5 +67,5 @@ Elastic Net Regression was performed using the 20 principal components derived f
 
 - **Model Performance:**
   - **R-squared on Test Data**:0.2619
-  - This indicates that the model explains approximately 26.19% of the variance in the Gpath outcome on the test dataset.
+  
 
