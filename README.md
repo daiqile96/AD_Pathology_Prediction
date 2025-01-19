@@ -34,7 +34,7 @@ A generalized linear model (GLM) with Elastic Net regularization was developed u
 
 4. **LSTM**:
 An LSTM (Long Short-Term Memory) model was developed to leverage the full longitudinal data. The LSTM's performance was compared to the baseline GLM model to evaluate its effectiveness in capturing temporal patterns.
-  - **Hyperparameter Tuning:** Employed 5-fold cross-validation to optimize hyperparameters. See scripts [here](https://nbviewer.org/github/daiqile96/AD_Pathology_Prediction/lstm_select_parameter.py)
+  - **Hyperparameter Tuning:** Employed 5-fold cross-validation to optimize hyperparameters. See scripts [here](https://github.com/daiqile96/AD_Pathology_Prediction/blob/main/lstm_select_parameter.py).
 
 
 ## Results
