@@ -21,6 +21,7 @@ The goal of this study is to utilize longitudinal clinical data from the ROS/MAP
 The analysis consists of the following steps:
 
 1. **Data Exploration and  Preparation:**
+See full scripts for data exploration and preparation [here](https://nbviewer.org/github/daiqile96/AD_Pathology_Prediction/blob/main/data_prep.ipynb).
    - Performed correlation analysis to check correlation among features and outcomes.
    - Split the data into 80% training and 20% testing sets.
    - Scaled features to ensure compatibility with the regression model.
@@ -33,6 +34,7 @@ A generalized linear model (GLM) with Elastic Net regularization was developed u
 
 4. **LSTM**:
 An LSTM (Long Short-Term Memory) model was developed to leverage the full longitudinal data. The LSTM's performance was compared to the baseline GLM model to evaluate its effectiveness in capturing temporal patterns.
+  - **Hyperparameter Tuning:** Employed 5-fold cross-validation to optimize hyperparameters. See scripts [here](https://nbviewer.org/github/daiqile96/AD_Pathology_Prediction/lstm_select_parameter.py)
 
 
 ## Results
