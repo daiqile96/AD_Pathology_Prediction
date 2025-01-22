@@ -19,9 +19,10 @@ test_sequences = utils.create_sequences(scaled_test, test_ids, feature_columns, 
 # Example usage
 hyperparameter_grid = {
     'hidden_size': [4, 8, 16],
-    'num_layers': [1, 2, 3],
-    'learning_rate': [0.001, 0.01],
-    'batch_size': [8, 16]
+    'num_layers': [1, 2, 3, 4],
+    'learning_rate': [0.001, 0.005, 0.01],
+    'batch_size': [8, 16, 32],
+    'dropout_rate': [0.2, 0.4, 0.5, 0.6]
 }
 
 # Call the function
