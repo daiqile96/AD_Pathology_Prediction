@@ -1,3 +1,5 @@
+import os
+import tempfile
 import itertools
 import pandas as pd
 import numpy as np
@@ -15,6 +17,7 @@ import torch.optim as optim
 from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence, pad_packed_sequence
 from torch.utils.data import Dataset, DataLoader
 from torchmetrics import R2Score
+
 
 # Utility functions
 def load_and_merge_data(features_path, targets_path, join_columns):
@@ -190,7 +193,7 @@ def create_sequences(dataframe, ids, features, targets):
     for id in ids:
         # Filter rows for the current ID
         tmp_df = dataframe[dataframe.projid == id]
-        
+
         # Extract and convert target columns to a tensor
         target_values = tmp_df[targets].iloc[0].values
         target_tensor = torch.tensor(target_values, dtype=torch.float32)
@@ -249,18 +252,20 @@ def custom_collate(batch):
 # LSTM Model for sequence prediction
 class LSTMModel(nn.Module):
     """
-    An LSTM-based model for sequence prediction tasks.
+    An LSTM-based model for sequence prediction tasks with Batch Normalization.
     """
-    def __init__(self, input_dim, hidden_dim, output_dim, num_layers):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers, dropout=0.5):
         """
         Args:
             input_dim (int): Number of input features.
             hidden_dim (int): Number of hidden units in each LSTM layer.
             output_dim (int): Number of output features.
             num_layers (int): Number of LSTM layers.
+            dropout (float): Dropout rate.
         """
         super(LSTMModel, self).__init__()
-        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True)
+        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, batch_first=True)
+        self.batch_norm = nn.BatchNorm1d(hidden_dim)  # Batch normalization for hidden states
         self.fc = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x):
@@ -273,20 +278,25 @@ class LSTMModel(nn.Module):
         Returns:
             Tensor: Output of the fully connected layer.
         """
-        _, (hidden, _) = self.lstm(x)
-        out = self.fc(hidden[-1])
+        _, (hidden, _) = self.lstm(x)  # hidden shape: (num_layers, batch_size, hidden_dim)
+        out = hidden[-1]  # Take the hidden state of the last LSTM layer
+        out = self.batch_norm(out)  # Apply batch normalization
+        out = self.fc(out)  # Pass through the fully connected layer
         return out
 
+
 def compute_r2(predictions, ground_truth):
-        
+
     return np.corrcoef(predictions, ground_truth)[1, 0] ** 2
 
 
-def train_and_evaluate_model(train_data, test_data, input_dim, output_dim, hidden_size, num_layers, learning_rate, batch_size,
-                             num_epochs=100, patience=10, lr_scheduler_patience=5, lr_factor=0.5, test_size=0.2, random_state=42,
-                             seed=1217):
+def train_and_evaluate_model(
+        train_data, test_data, input_dim, output_dim, hidden_size, num_layers, learning_rate, batch_size,
+        num_epochs=100, patience=10, lr_scheduler_patience=5, lr_factor=0.5, test_size=0.2, random_state=42,
+        seed=1217, model_save_path="best_model.pth", temporary=False, 
+        weight_decay=1e-5, dropout_rate=0.5):
     """
-    General function for training and evaluating a model with train-validation splitting and early stopping.
+    Function for training and evaluating a model with optional temporary saving of the best model.
 
     Args:
         train_data (list): Training dataset [(sequence, target), ...].
@@ -303,9 +313,15 @@ def train_and_evaluate_model(train_data, test_data, input_dim, output_dim, hidde
         lr_factor (float): Factor for reducing the learning rate.
         test_size (float): Proportion of the training data used as validation data.
         random_state (int): Random state for reproducibility.
+        seed (int): Random seed for reproducibility.
+        model_save_path (str): Path to save the best model.
+        temporary (bool): If True, saves the model to a temporary file that is deleted afterward.
 
     Returns:
         dict: R-squared scores for each outcome on the test dataset.
+        list: Training loss history.
+        list: Validation loss history.
+        list: Learning rate history.
     """
     from sklearn.model_selection import train_test_split
 
@@ -323,14 +339,29 @@ def train_and_evaluate_model(train_data, test_data, input_dim, output_dim, hidde
     torch.manual_seed(seed)
 
     # Initialize model, loss, optimizer, and scheduler
-    model = LSTMModel(input_dim, hidden_size, output_dim, num_layers)
+    model = LSTMModel(input_dim, hidden_size, output_dim, num_layers, dropout_rate)
+
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=lr_scheduler_patience, factor=lr_factor)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min',
+                                                           patience=lr_scheduler_patience, factor=lr_factor)
 
     # Early stopping variables
     best_val_loss = float('inf')
     patience_counter = 0
+
+    # Lists to record losses and learning rate
+    training_loss_history = []
+    validation_loss_history = []
+    learning_rate_history = []
+
+    # Determine save path (temporary or fixed)
+    if temporary:
+        temp_file = tempfile.NamedTemporaryFile(delete=False)
+        temp_model_path = temp_file.name
+        temp_file.close()  # Close the file so PyTorch can write to it
+    else:
+        temp_model_path = model_save_path
 
     # Train the model
     for epoch in range(num_epochs):
@@ -344,6 +375,9 @@ def train_and_evaluate_model(train_data, test_data, input_dim, output_dim, hidde
             optimizer.step()
             train_loss += loss.item()
 
+        train_loss /= len(train_loader)
+        training_loss_history.append(train_loss)
+
         # Evaluate on the validation set
         model.eval()
         val_loss = 0
@@ -353,18 +387,29 @@ def train_and_evaluate_model(train_data, test_data, input_dim, output_dim, hidde
                 loss = criterion(outputs, batch_y)
                 val_loss += loss.item()
 
+        val_loss /= len(val_loader)
+        validation_loss_history.append(val_loss)
+
         # Update learning rate scheduler
         scheduler.step(val_loss)
 
-        # Check early stopping conditions
+        # Log the current learning rate
+        current_lr = optimizer.param_groups[0]['lr']
+        learning_rate_history.append(current_lr)
+
+        # Save the model if validation loss is the best
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             patience_counter = 0
+            torch.save(model.state_dict(), temp_model_path)  # Save the model
         else:
             patience_counter += 1
 
         if patience_counter >= patience:
             break
+
+    # Load the best model for evaluation
+    model.load_state_dict(torch.load(temp_model_path))
 
     # Evaluate on the test set
     model.eval()
@@ -377,11 +422,15 @@ def train_and_evaluate_model(train_data, test_data, input_dim, output_dim, hidde
             for i in range(output_dim):
                 r2_scores.append(compute_r2(pred_y_df[i], batch_y_df[i]))
 
-    return r2_scores
+    # Delete temporary file if applicable
+    if temporary:
+        os.remove(temp_model_path)
+
+    return r2_scores, training_loss_history, validation_loss_history, learning_rate_history
 
 
 def cross_validate_lstm(data, n_splits, input_dim, output_dim, num_epochs, patience, lr_scheduler_patience, lr_factor,
-                        hidden_size, num_layers, learning_rate, batch_size, seed):
+                        hidden_size, num_layers, learning_rate, batch_size, seed, dropout_rate):
     """
     Perform k-fold cross-validation for an LSTM model with early stopping.
 
@@ -412,7 +461,7 @@ def cross_validate_lstm(data, n_splits, input_dim, output_dim, num_epochs, patie
         test_data = [data[i] for i in test_idx]
 
         # Use the general train_and_evaluate_model function
-        fold_r2_scores = train_and_evaluate_model(
+        fold_r2_scores, _, _, _ = train_and_evaluate_model(
             train_data=train_data,
             test_data=test_data,
             input_dim=input_dim,
@@ -427,7 +476,9 @@ def cross_validate_lstm(data, n_splits, input_dim, output_dim, num_epochs, patie
             lr_factor=lr_factor,
             test_size=0.2,  # Internal validation split
             random_state=fold,
-            seed=seed
+            seed=seed,
+            temporary=True,
+            dropout_rate=dropout_rate
         )
 
         all_r2_scores.append(fold_r2_scores)
@@ -442,7 +493,7 @@ def cross_validate_lstm(data, n_splits, input_dim, output_dim, num_epochs, patie
 
 
 def select_lstm_hyperparameters(train_sequences, feature_columns, target_columns, 
-                              hyperparameter_grid, seed=1217, n_splits=5, num_epochs=100, 
+                              hyperparameter_grid, seed=1217, n_splits=5, num_epochs=100,
                               patience=10, lr_scheduler_patience=5, lr_factor=0.5):
     """
     Perform hyperparameter evaluation with k-fold cross-validation for an LSTM model.
@@ -469,15 +520,16 @@ def select_lstm_hyperparameters(train_sequences, feature_columns, target_columns
         hyperparameter_grid['hidden_size'],
         hyperparameter_grid['num_layers'],
         hyperparameter_grid['learning_rate'],
-        hyperparameter_grid['batch_size']
+        hyperparameter_grid['batch_size'],
+        hyperparameter_grid['dropout_rate']
     ))
-    
+
     # Store results
     results = []
 
     # Loop through each hyperparameter combination
     for combination in hyperparameter_combinations:
-        hidden_size, num_layers, learning_rate, batch_size = combination
+        hidden_size, num_layers, learning_rate, batch_size, dropout_rate = combination
         # print(f"Evaluating combination: hidden_size={hidden_size}, num_layers={num_layers}, "
         #       f"learning_rate={learning_rate}, batch_size={batch_size}")
 
@@ -495,7 +547,8 @@ def select_lstm_hyperparameters(train_sequences, feature_columns, target_columns
             patience=patience,
             lr_scheduler_patience=lr_scheduler_patience,
             lr_factor=lr_factor,
-            seed=seed
+            seed=seed,
+            dropout_rate=dropout_rate
         )
 
         # Prepare result entry
@@ -504,6 +557,7 @@ def select_lstm_hyperparameters(train_sequences, feature_columns, target_columns
             'num_layers': num_layers,
             'learning_rate': learning_rate,
             'batch_size': batch_size,
+            'dropout_rate': dropout_rate
         }
 
         # Add mean scores to the result entry with outcome names
