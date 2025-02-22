@@ -1,0 +1,11 @@
+target,train_columns,hidden_size,num_layers,batch_size,learning_rate,dropout_rate,gpath,tangles,amyloid,niareagansc
+gpath,gpath,8,4,32,0.01,0.2,0.211532444,,,
+gpath,"gpath, tangles",16,3,32,0.01,0,0.283747846,0.372306319,,
+gpath,"gpath, tangles, amyloid",16,4,16,0.01,0.2,0.276886919,0.375215798,0.120433674,
+gpath,"gpath, tangles, niareagansc",8,2,16,0.01,0.5,0.281060919,0.369196504,,0.315170085
+gpath,"gpath, tangles, amyloid, niareagansc",16,3,16,0.01,0,0.31672503,0.40162617,0.152392256,0.335032459
+tangles,tangles,16,1,32,0.01,0.4,,0.40201603,,
+tangles,"gpath, tangles",8,1,16,0.01,0.4,0.267566043,0.380389224,,
+tangles,"gpath, tangles, amyloid",16,3,32,0.01,0,0.270421614,0.392312923,0.129984472,
+tangles,"gpath, tangles, niareagansc",16,1,16,0.005,0,0.230318257,0.366462607,,0.275949655
+tangles,"gpath, tangles, amyloid, niareagansc",16,1,16,0.01,0,0.261877283,0.349879194,0.11190547,0.287450884
