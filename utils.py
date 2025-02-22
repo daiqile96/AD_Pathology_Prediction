@@ -290,10 +290,34 @@ def compute_r2(predictions, ground_truth):
     return np.corrcoef(predictions, ground_truth)[1, 0] ** 2
 
 
+def pearson_correlation(y_pred, y_true):
+    """Compute Pearson correlation between predictions and true values."""
+    mean_pred = torch.mean(y_pred, dim=0, keepdim=True)
+    mean_true = torch.mean(y_true, dim=0, keepdim=True)
+
+    num = torch.sum((y_pred - mean_pred) * (y_true - mean_true), dim=0)
+    denom = torch.sqrt(
+        torch.sum((y_pred - mean_pred) ** 2, dim=0) *
+        torch.sum((y_true - mean_true) ** 2, dim=0)
+    )
+
+    pearson_corr = num / (denom + 1e-8)  # Avoid division by zero
+    return pearson_corr
+
+
+class PearsonCorrelationLoss(nn.Module):
+    def __init__(self):
+        super(PearsonCorrelationLoss, self).__init__()
+
+    def forward(self, y_pred, y_true):
+        pearson_corr = pearson_correlation(y_pred, y_true)
+        return 1 - pearson_corr.sum()  # Minimize (1 - Pearson correlation)
+
+
 def train_and_evaluate_model(
         train_data, test_data, input_dim, output_dim, hidden_size, num_layers, learning_rate, batch_size,
         num_epochs=100, patience=10, lr_scheduler_patience=5, lr_factor=0.5, test_size=0.2, random_state=42,
-        seed=1217, model_save_path="best_model.pth", temporary=False, 
+        seed=1217, model_save_path="best_model.pth", temporary=False,
         weight_decay=1e-5, dropout_rate=0.5):
     """
     Function for training and evaluating a model with optional temporary saving of the best model.
@@ -332,7 +356,7 @@ def train_and_evaluate_model(
 
     # Create dataloaders
     train_loader = DataLoader(VariableLengthTensorDataset(train_split), batch_size=batch_size, collate_fn=custom_collate, shuffle=True)
-    val_loader = DataLoader(VariableLengthTensorDataset(val_split), batch_size=batch_size, collate_fn=custom_collate, shuffle=False)
+    val_loader = DataLoader(VariableLengthTensorDataset(val_split), batch_size=len(val_idx), collate_fn=custom_collate, shuffle=False)
     test_loader = DataLoader(VariableLengthTensorDataset(test_data), batch_size=len(test_data), collate_fn=custom_collate, shuffle=False)
 
     # Set the random seed
@@ -341,7 +365,7 @@ def train_and_evaluate_model(
     # Initialize model, loss, optimizer, and scheduler
     model = LSTMModel(input_dim, hidden_size, output_dim, num_layers, dropout_rate)
 
-    criterion = nn.MSELoss()
+    criterion = PearsonCorrelationLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min',
                                                            patience=lr_scheduler_patience, factor=lr_factor)
@@ -568,4 +592,6 @@ def select_lstm_hyperparameters(train_sequences, feature_columns, target_columns
 
     # Convert results to a DataFrame
     return pd.DataFrame(results)
+
+
 
