@@ -26,15 +26,40 @@ See full scripts for data exploration and preparation [here](https://nbviewer.or
    - Split the data into 80% training and 20% testing sets.
    - Scaled features to ensure compatibility with the regression model.
 
-3. **Baseline Model: Elastic Net Regression:**
+2. **Baseline Model: Elastic Net Regression:**
 A generalized linear model (GLM) with Elastic Net regularization was developed using clinical features from participants' last visits to predict brain pathology. This serves as the baseline for comparison. See full scripts for baseline model [here](https://nbviewer.org/github/daiqile96/AD_Pathology_Prediction/blob/main/elastic_net.ipynb).
    - **Hyperparameter Tuning:** Employed GridSearchCV to optimize hyperparameters.
    - **Model Fitting:** Trained the model with the best parameters identified through tuning.
    - **Evaluation:** Evaluated model performance on the testing dataset.
 
-4. **LSTM**:
+3. **LSTM**:
 An LSTM (Long Short-Term Memory) model was developed to leverage the full longitudinal data. The LSTM's performance was compared to the baseline GLM model to evaluate its effectiveness in capturing temporal patterns.
-  - **Hyperparameter Tuning:** Employed 5-fold cross-validation to optimize hyperparameters. See scripts [here](https://github.com/daiqile96/AD_Pathology_Prediction/blob/main/lstm_select_parameter.py).
+    - **Hyperparameter Tuning uisng Cross-validation:** Employed 5-fold cross-validation to optimize hyperparameters. See scripts [here](https://github.com/daiqile96/AD_Pathology_Prediction/blob/main/lstm_cross_validation.py).
+      - We considered the following hyperparameters:
+        - Hidden Size: {4, 8, 16, 32} 
+        - Number of Layers: {1, 2, 3, 4}
+        - Learning Rate: {0.001, 0.005, 0.01}
+        - Batch Size: {16, 32, 64} 
+        - Dropout Rate: {0, 0.2, 0.4, 0.5}
+      - During hyperparameter tuning, we also considered models with different outcome variable combinations:
+        - Single outcomes: ['gpath'], ['tangles']
+        - Pairwise outcomes: ['gpath', 'tangles']
+        - Three outcomes: ['gpath', 'tangles', 'amyloid']，['gpath', 'tangles', 'niareagansc']
+        - All outcomes: , ['gpath', 'tangles', 'amyloid', 'niareagansc']
+    - **Select hyperparameters and outcome variables**: After cross-validation, for each outcome variable combination, we selected the best hyperparameter with highest average cross-validation prediction $R^2$, and then evaluate the selected model in testing samples. See scripts [here](https://github.com/daiqile96/AD_Pathology_Prediction/blob/main/lstm_testing_performance.py). 
+      - The script outputs [target_set_performance.csv](https://github.com/daiqile96/AD_Pathology_Prediction/blob/main/target_set_performance.csv) which contains the testing $R^2$ for each selected model. Based on these results, we identified the **final model with the highest testing $R^2$ for gpath and tangles**:
+        - gpath: 
+          - hyperparameter: hidden_size=16, num_layers=3, batch_size=16, learning_rate=0.01, dropout_rate=0
+          - outcome variables: ['gpath', 'tangles', 'amyloid', 'niareagansc']
+        - tangles: 
+          - hidden_size=16, num_layers=1, batch_size=32, learning_rate=0.01
+            - since num_layers=1, the dropout rate is not applicable.
+          - outcome variable: ['tangles']
+      - We further checked the training and validation loss of the final model. See results [here](https://nbviewer.org/github/daiqile96/AD_Pathology_Prediction/blob/main/lstm_final_model.ipynb).
+        
+
+
+```
 
 
 ## Results
