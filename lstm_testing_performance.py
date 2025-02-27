@@ -2,6 +2,10 @@ import utils
 import pandas as pd
 import os 
 
+# This script selects the hyper-parameters that yield the best performance across 5-fold cross validation and then evaluates the selected model on the test samples.
+# Inputs: scaled_train.pkl, scaled_test.pkl, csv files under 'results' folder
+# Outputs: target_set_performance.csv which contains the testing $R^2$ for each selected model. 
+
 # Load the pickle files
 scaled_train = pd.read_pickle("scaled_train.pkl")
 scaled_test = pd.read_pickle("scaled_test.pkl")

@@ -1,6 +1,11 @@
 import utils
 import pandas as pd
 
+# This script uses 5-fold cross-validation to optimize hyperparameters for LSTM. 
+# Inputs: scaled_train.pkl, scaled_test.pkl
+# Outputs: CSV files (e.g., lstm_results_[...].csv) in the results folder. One CSV file contains the average prediction $R^2$ from 5-fold cross-validation using models with [...] as targets.
+
+
 # Load the pickle files
 scaled_train = pd.read_pickle("scaled_train.pkl")
 scaled_test = pd.read_pickle("scaled_test.pkl")
