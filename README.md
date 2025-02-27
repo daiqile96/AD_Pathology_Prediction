@@ -40,7 +40,7 @@ A generalized linear model (GLM) with Elastic Net regularization was developed u
       - tangles:
         - the selected parameters:
           - alpha: 0.1
-          - l1 ratio: 0.3
+          - l1 ratio: 0.1
         - Testing $R^2$: 0.3854
 
 3. **LSTM**:
